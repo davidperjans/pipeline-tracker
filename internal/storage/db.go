@@ -10,7 +10,7 @@ import (
 
 var DB *pgxpool.Pool
 
-func ConnectToDb() error {
+func ConnectToDB() error {
 	dbURL := fmt.Sprintf(
 		"postgres://%s:%s@localhost:%s/%s?sslmode=disable",
 		getEnv("DB_USER", "tracker"),

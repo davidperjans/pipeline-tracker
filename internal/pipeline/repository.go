@@ -21,3 +21,32 @@ func InsertPipelineRun(run PipelineRun) error {
 
 	return err
 }
+
+func GetAllPipelineRuns() ([]PipelineRun, error) {
+	rows, err := storage.DB.Query(context.Background(), `
+		SELECT id, commit_hash, branch, status, duration, created_at
+		FROM pipeline_runs
+		ORDER BY created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var runs []PipelineRun
+	for rows.Next() {
+		var run PipelineRun
+		if err := rows.Scan(
+			&run.ID,
+			&run.CommitHash,
+			&run.Branch,
+			&run.Status,
+			&run.Duration,
+			&run.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		runs = append(runs, run)
+	}
+	return runs, nil
+}
