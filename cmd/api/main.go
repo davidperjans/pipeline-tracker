@@ -1,7 +1,17 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+
+	"github.com/davidperjans/pipeline-tracker/internal/storage"
+)
 
 func main() {
-	fmt.Println("Pipeline Tracker is running...")
+	err := storage.ConnectToDb()
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+
+	fmt.Println("✅ Connected to PostgreSQL")
 }
