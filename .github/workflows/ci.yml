@@ -10,6 +10,24 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: tracker
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: pipeline_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U tracker"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DB_URL: postgres://tracker:secret@localhost:5432/pipeline_db?sslmode=disable
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -24,6 +42,15 @@ jobs:
 
       - name: Build
         run: go build ./...
+
+      - name: Install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.16.2/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/
+
+      - name: Run database migrations
+        run: |
+          migrate -path backend/pipeline-tracker/migrations -database "$DB_URL" up
 
       - name: Run tests
         run: go test ./...
