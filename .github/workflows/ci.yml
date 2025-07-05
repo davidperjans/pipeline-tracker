@@ -49,6 +49,7 @@ jobs:
           sudo mv migrate /usr/local/bin/
 
       - name: Run database migrations
+        working-directory: backend/pipeline-tracker
         run: |
           migrate -path backend/pipeline-tracker/migrations -database "$DB_URL" up
 
