@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/davidperjans/pipeline-tracker/internal/graph"
 	"github.com/davidperjans/pipeline-tracker/internal/middleware"
 	"github.com/davidperjans/pipeline-tracker/internal/pipeline"
 	"github.com/davidperjans/pipeline-tracker/internal/storage"
@@ -29,16 +30,24 @@ func pipelineRunsHandler(w http.ResponseWriter, r *http.Request) {
 
 func handlePostPipelineRun(w http.ResponseWriter, r *http.Request) {
 	var run pipeline.PipelineRun
+
 	if err := json.NewDecoder(r.Body).Decode(&run); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	if err := pipeline.InsertPipelineRun(run); err != nil {
+	// 1. Spara till PostgreSQL och få tillbaka genererat ID
+	newID, err := pipeline.InsertPipelineRun(run)
+	if err != nil {
 		http.Error(w, "Failed to insert run", http.StatusInternalServerError)
 		return
 	}
 
+	// 2. Skapa nod i Neo4j, konvertera ID till string
+	idStr := fmt.Sprintf("%d", newID)
+	_ = graph.CreatePipelineNode(idStr, run.Branch, run.Status)
+
+	// 3. Svara till klient
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("Pipeline run logged!"))
 }
@@ -58,18 +67,24 @@ func handleGetPipelineRuns(w http.ResponseWriter, r *http.Request) {
 func main() {
 	// 1. Anslut till PostgreSQL
 	if err := storage.ConnectToDB(); err != nil {
-		log.Fatal("❌ Failed to connect to database:", err)
+		log.Fatal("❌ Failed to connect to PostgreSQL:", err)
 	}
 	fmt.Println("✅ Connected to PostgreSQL")
 
-	// 2. Setup routes via ServeMux
+	// 2. Anslut till Neo4j
+	if err := graph.ConnectToNeo4j(); err != nil {
+		log.Fatal("❌ Failed to connect to Neo4j:", err)
+	}
+	fmt.Println("✅ Connected to Neo4j")
+
+	// 3. Setup routes
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/pipeline-runs", pipelineRunsHandler)
 
-	// 3. Wrap med middleware
+	// 4. Middleware (logging, recover)
 	wrapped := middleware.RecoverPanic(middleware.RequestLogger(mux))
 
-	// 4. Starta server med custom handler
+	// 5. Start HTTP-server med middleware
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: wrapped,
@@ -82,7 +97,7 @@ func main() {
 		}
 	}()
 
-	// 4. Graceful shutdown
+	// 6. Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit

@@ -6,20 +6,19 @@ import (
 	"github.com/davidperjans/pipeline-tracker/internal/storage"
 )
 
-func InsertPipelineRun(run PipelineRun) error {
+func InsertPipelineRun(run PipelineRun) (int, error) {
 	query := `
 		INSERT INTO pipeline_runs (commit_hash, branch, status, duration)
 		VALUES ($1, $2, $3, $4)
+		RETURNING id
 	`
 
-	_, err := storage.DB.Exec(context.Background(), query,
-		run.CommitHash,
-		run.Branch,
-		run.Status,
-		run.Duration,
-	)
-
-	return err
+	var id int
+	err := storage.DB.QueryRow(context.Background(), query, run.CommitHash, run.Branch, run.Status, run.Duration).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 func GetAllPipelineRuns() ([]PipelineRun, error) {
