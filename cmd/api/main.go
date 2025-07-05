@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/davidperjans/pipeline-tracker/internal/middleware"
 	"github.com/davidperjans/pipeline-tracker/internal/pipeline"
 	"github.com/davidperjans/pipeline-tracker/internal/storage"
 )
@@ -61,11 +62,18 @@ func main() {
 	}
 	fmt.Println("✅ Connected to PostgreSQL")
 
-	// 2. Setup routes
-	http.HandleFunc("/api/pipeline-runs", pipelineRunsHandler)
+	// 2. Setup routes via ServeMux
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/pipeline-runs", pipelineRunsHandler)
 
-	// 3. Starta server
-	server := &http.Server{Addr: ":8080"}
+	// 3. Wrap med middleware
+	wrapped := middleware.RecoverPanic(middleware.RequestLogger(mux))
+
+	// 4. Starta server med custom handler
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: wrapped,
+	}
 
 	go func() {
 		log.Println("🚀 Server running at http://localhost:8080")
