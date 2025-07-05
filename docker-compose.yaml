@@ -1,8 +1,10 @@
 version: "3.9"
+
 services:
   db:
     image: postgres:15
     restart: always
+    container_name: postgres
     environment:
       POSTGRES_USER: tracker
       POSTGRES_PASSWORD: secret
@@ -12,5 +14,18 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  neo4j:
+    image: neo4j:5
+    restart: always
+    container_name: neo4j
+    ports:
+      - "7474:7474" # Web UI
+      - "7687:7687" # Bolt protocol (för Go-anslutning)
+    environment:
+      - NEO4J_AUTH=neo4j/password
+    volumes:
+      - neo4j_data:/data
+
 volumes:
   pgdata:
+  neo4j_data:
