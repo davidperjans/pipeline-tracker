@@ -55,7 +55,7 @@ jobs:
 
       - name: Run database migrations
         run: |
-          migrate -path backend/pipeline-tracker/migrations -database "$DB_URL" up
+          migrate -path migrations -database "$DB_URL" up
 
       - name: Run tests
         run: go test ./...
